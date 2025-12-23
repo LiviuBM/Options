@@ -1,224 +1,223 @@
 # SPX Options Analytics & Volatility Surface Pipeline
 
-## Scop general
+## General Purpose
 
-Repozitoriul implementează un pipeline complet de analiză a opțiunilor pe S&P 500 (SPX), pornind de la date brute EOD, extrăgând parametri implicați (volatilitate, rată fără risc, dividend), construind serii istorice robuste și culminând cu vizualizări avansate: dashboard analitic și animație 3D a suprafeței de volatilitate.
+This repository implements a full analytics pipeline for S&P 500 (SPX) options, starting from raw end-of-day (EOD) option data and extracting endogenous implied parameters (volatility, risk-free rate, dividend yield). The pipeline constructs robust historical time series and produces advanced visualizations: a macro-analytic dashboard and a 3D volatility surface animation.
 
-Pipeline-ul este gândit pentru **cercetare cantitativă**, nu pentru trading live: accent pe stabilitate statistică, filtrare a zgomotului și interpretabilitate economică.
+The pipeline is designed for **quantitative research**, not live trading. Emphasis is placed on statistical stability, structural noise filtering, and economic interpretability.
 
 ---
 
-## Structura repo-ului
+## Repository Structure
 
-```
 .
-├── options_eod_all.csv
-├── S&P500Index-Returns.xlsx
-├── SPX_Advanced_History_Refined.csv   (generat)
-├── plot_volatility_surface_v3.py
-├── plot_dashboard_v3.py
-├── video_generator.py
-├── image_generator_v3.py
-└── frames_output/                     (generat)
-```
+├── options_eod_all.csv  
+├── S&P500Index-Returns.xlsx  
+├── SPX_Advanced_History_Refined_v2.csv  
+├── plot_volatility_surface_v4.py  
+├── plot_dashboard_v3.py  
+├── image_generator_v4.py  
+├── video_generator.py  
+└── frames_output_v2/  
 
 ---
 
-## Dependințe
+## Dependencies
 
-* Python >= 3.9
-* pandas
-* numpy
-* scipy
-* matplotlib
-* seaborn
-* py_vollib_vectorized
-* tqdm
-* openpyxl
-* opencv-python
+- Python >= 3.9  
+- pandas  
+- numpy  
+- scipy  
+- matplotlib  
+- py_vollib_vectorized  
+- tqdm  
+- openpyxl  
+- opencv-python  
 
-Instalare rapidă:
+### Quick Installation
 
-```bash
-pip install pandas numpy scipy matplotlib seaborn py_vollib_vectorized tqdm openpyxl opencv-python
-```
+    pip install pandas numpy scipy matplotlib py_vollib_vectorized tqdm openpyxl opencv-python
 
 ---
 
-## 1. `plot_volatility_surface_v3.py`
+## 1. plot_volatility_surface_v4.py
 
-### Rol
+### Role
 
-Scriptul **central** de procesare statistică. Transformă datele brute de opțiuni într-o serie zilnică de parametri implicați, stabili și coerent definiți economic.
+Core statistical processing script. Transforms raw option data into a daily time series of implied parameters that are temporally stable and economically well-defined.
 
 ### Input
 
-* `options_eod_all.csv` – opțiuni SPX EOD (bid/ask, strike, maturitate, tip)
-* `S&P500Index-Returns.xlsx` – randamente Total Return vs Price Return
+- options_eod_all.csv – SPX EOD options (bid/ask, strike, maturity, type)  
+- S&P500Index-Returns.xlsx – Value-Weighted returns with and without dividends  
 
 ### Output
 
-* `SPX_Advanced_History_Refined.csv`
+- SPX_Advanced_History_Refined_v2.csv  
 
-### Ce calculează
+### Computed Metrics (per day)
 
-Pentru fiecare zi:
+Risk-Free Rate (implied)
+- raw estimation via Put–Call Parity (strike–spread regression)
+- filtering using 1D Kalman Filter (random walk)
+- explicit separation of Raw vs Kalman (noise vs signal)
 
-* **Rata fără risc implicită**
+Continuous Dividend Yield
+- structurally derived from Total Return / Price Return ratio
+- trailing window: 252 days
+- converted to continuous yield for Black–Scholes
 
-  * estimare brută din Put–Call Parity
-  * filtrare cu **Kalman Filter 1D (random walk)**
-* **Dividend yield continuu**
+ATM Implied Volatility
+- robust median within a ±3% band around spot
 
-  * derivat structural din raport TR / PR
-  * trailing window 252 zile
-* **Volatilitate implicită ATM**
+Skew
+- IV(put 90%) − IV(call 110%)
 
-  * mediană robustă într-o bandă ±3% în jurul spot
-* **Skew**: IV(put 90%) − IV(call 110%)
-* **Proxy de kurtosis**: wing-uri 80% / 120% vs ATM
+Kurtosis Proxy
+- 80% / 120% wings relative to ATM
 
-### Elemente cheie de design
+### Key Design Choices
 
-* Chunking pentru fișiere foarte mari
-* Buffer pe zile incomplete
-* Filtrare agresivă a datelor eronate (bid/ask, T, preț)
-* Vectorizare completă pentru IV
+- chunking for very large datasets
+- explicit buffering for incomplete trading days
+- literature-validated filters (bid/ask, intrinsic bounds, minimum maturity)
+- aggressive cleaning of erroneous observations
+- fully vectorized IV computation
+- Kalman Filter applied exclusively to the risk-free rate
 
-### Rulare
+### Execution
 
-```bash
-python plot_volatility_surface_v3.py
-```
+    python plot_volatility_surface_v4.py
 
 ---
 
-## 2. `plot_dashboard_v3.py`
+## 2. plot_dashboard_v3.py
 
-### Rol
+### Role
 
-Vizualizare sintetică, **interpretabilă macro**, a seriilor istorice extrase.
+Macro-level, interpretable visualization of the historical series extracted by the pipeline.
 
 ### Input
 
-* `SPX_Advanced_History_Refined.csv`
+- SPX_Advanced_History_Refined_v2.csv  
 
 ### Output
 
-* Dashboard Matplotlib (4 panouri)
+- Matplotlib dashboard (4 panels)
 
-### Panouri
+### Panels
 
-1. **Market Fear Gauge**
+Market Fear Gauge
+- SPX price vs ATM IV (SMA used only for visual clarity)
 
-   * SPX Price vs ATM IV (SMA)
-2. **Option Skew**
+Option Skew
+- proxy for relative demand for downside protection (puts vs calls)
 
-   * cerere relativă de protecție (puts vs calls)
-3. **Risk-Free Rate**
+Risk-Free Rate
+- Raw vs Kalman (noise vs signal)
 
-   * Raw vs Kalman (zgomot vs semnal)
-4. **Dividend Yield continuu**
+Continuous Dividend Yield
+- structural series, not option-implied
 
-### Observații
+### Notes
 
-* SMA folosit doar pentru lizibilitate
-* Ratele și yield-ul sunt deja filtrate structural
+- SMA is used strictly for visualization clarity
+- rates and yields are already structurally filtered
 
-### Rulare
+### Execution
 
-```bash
-python plot_dashboard_v3.py
-```
+    python plot_dashboard_v3.py
 
 ---
 
-## 3. `image_generator_v3.py`
+## 3. image_generator_v4.py
 
-### Rol
+### Role
 
-Generează **frame-uri zilnice 3D** ale suprafeței de volatilitate, consistente în timp, pentru animație.
+Generates daily 3D frames of the volatility surface, consistent through time, used for animation.
 
 ### Input
 
-* `options_eod_all.csv`
-* `SPX_Advanced_History_Refined.csv`
+- options_eod_all.csv  
+- SPX_Advanced_History_Refined_v2.csv  
 
 ### Output
 
-* `frames_output/frame_00000.png`, `frame_00001.png`, ...
+- frames_output_v2/frame_00000.png  
+- frames_output_v2/frame_00001.png  
+- ...
 
-### Caracteristici critice
+### Critical Characteristics
 
-* Axe **fixe** (moneyness, maturitate, IV)
-* Moneyness definit forward: `K / F`
-* Doar opțiuni OTM
-* Filtre anti-spike:
+- fixed axes: moneyness, maturity, IV
+- forward-defined moneyness: K / F
+- forward price explicitly computed: F = S · exp((r − q)T)
+- OTM options only
 
-  * spread contextual (ATM vs wings)
-  * quantile clipping
-  * interpolare + Gaussian smoothing
+### Anti-Spike Filters (v4)
 
-### Motivare
+- contextual spread filter (strict at ATM, permissive in wings)
+- quantile clipping (lower 2%)
+- axis-bound filtering
+- linear + nearest interpolation
+- controlled Gaussian smoothing (σ = 0.8)
 
-Asigură că variațiile vizuale reflectă **schimbări reale de structură**, nu artefacte de date.
+### Motivation
 
-### Rulare
+Ensures that visual variations reflect genuine structural changes in the volatility surface rather than data artifacts.
 
-```bash
-python image_generator_v3.py
-```
+### Execution
+
+    python image_generator_v4.py
 
 ---
 
-## 4. `video_generator.py`
+## 4. video_generator.py
 
-### Rol
+### Role
 
-Convertește frame-urile generate într-un video MP4.
+Converts generated frames into an MP4 video.
 
 ### Input
 
-* `frames_output/*.png`
+- frames_output_v2/*.png  
 
 ### Output
 
-* `SPX_Volatility_Evolution.mp4`
+- SPX_Volatility_Evolution.mp4  
 
-### Detalii
+### Details
 
-* Sortare alfanumerică strictă (frame_00001, ...)
-* Codec standard `mp4v`
-* FPS configurabil (default 24)
+- strict alphanumeric sorting
+- standard mp4v codec
+- configurable FPS (default: 24)
 
-### Rulare
+### Execution
 
-```bash
-python video_generator.py
-```
+    python video_generator.py
 
 ---
 
-## Ordine recomandată de execuție
+## Recommended Execution Order
 
-1. `plot_volatility_surface_v3.py`
-2. `plot_dashboard_v3.py`
-3. `image_generator_v3.py`
-4. `video_generator.py`
-
----
-
-## Note metodologice
-
-* Rata fără risc este **endogenă** (extrasă din opțiuni), nu impusă extern
-* Dividendul este **structural**, nu estimat din opțiuni (evită instabilitatea)
-* Kalman Filter este folosit exclusiv unde ipoteza de random walk este economic justificată
+1. plot_volatility_surface_v4.py  
+2. plot_dashboard_v3.py  
+3. image_generator_v4.py  
+4. video_generator.py  
 
 ---
 
-## Limitări cunoscute
+## Methodological Notes
 
-* Nu tratează zile cu lichiditate extrem de redusă
-* Nu include ajustări pentru rate negative extreme
-* Nu este optimizat pentru intraday
+- the risk-free rate is endogenous (extracted from options), not externally imposed
+- dividends are structural, derived from TR/PR indices, not option-implied
+- Kalman Filter is used only where the random walk assumption is economically justified
+- the surface is built forward-consistently (K/F), not spot-based
 
+---
+
+## Known Limitations
+
+- does not explicitly handle days with extremely low liquidity
+- no adjustments for extreme negative rate regimes
+- not optimized for intraday data
